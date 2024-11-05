@@ -11,10 +11,20 @@ def object_exits(object_id, prediction):
 
 
 def main():
-
-    obj_detect = edgeiq.ObjectDetection(
-            "alwaysai/ssd_mobilenet_v1_coco_2018_01_28")
-    obj_detect.load(engine=edgeiq.Engine.DNN)
+    # Select the last model in the app configuration models list
+    # Currently supports Tensor RT and DNN
+    model_id_list = edgeiq.AppConfig().model_id_list
+    if len(model_id_list) == 0:
+        raise RuntimeError('No models in model ID list!')
+    model_id = model_id_list[-1]
+    obj_detect = edgeiq.ObjectDetection(model_id)
+    if edgeiq.is_jetson() and obj_detect.model_config.tensor_rt_support:
+        engine = edgeiq.Engine.TENSOR_RT
+    elif obj_detect.model_config.dnn_support:
+        engine = edgeiq.Engine.DNN
+    else:
+        raise ValueError(f'Model {obj_detect.model_id} not supported on this device!')
+    obj_detect.load(engine)
 
     print("Engine: {}".format(obj_detect.engine))
     print("Accelerator: {}\n".format(obj_detect.accelerator))
