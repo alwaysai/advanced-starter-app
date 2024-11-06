@@ -23,7 +23,15 @@ To start the app:
 aai app start
 ```
 
-To change the computer vision model, the engine and accelerator, and add additional dependencies read [this guide](https://docs.alwaysai.co/application_development/application_configuration.html).
+### Configuration
+| Field        | Subfield          | Allowed Values                                                                                 |
+|--------------|-------------------|------------------------------------------------------------------------------------------------|
+| video_stream | app_frame_size    | List of two ints: image width and height                                                       |
+| video_stream | mode              | String: The video capture mode: `IP` or `USB`                                                          |
+| video_stream | arg               | String or int: The arg for the given `mode`: `IP`->string of URL, `USB`->int of camera index                  |
+| tracker      | max_distance      | Int: The maximum number of distance in pixels for a new detection to be matched to a tracked object |
+| tracker      | deregister_frames | Int: The number of frames before dropping a lost tracked object                                     |
+| tracker      | min_inertia       | Int: The threshold of matched frames before an object is initialized as a tracked object            |
 
 ## Support
 * [Documentation](https://alwaysai.co/docs/)

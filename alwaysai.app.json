@@ -3,6 +3,24 @@
     "start": "python app.py"
   },
   "models": {
-    "alwaysai/ssd_mobilenet_v1_coco_2018_01_28": 9
+    "alwaysai/mobilenet_ssd": 5
+  },
+  "app_configurations": {
+    "video_stream": {
+      "app_frame_size": [
+        1920,
+        1080
+      ],
+      "mode": "USB",
+      "arg": 0
+    },
+    "tracker": {
+      "max_distance": 100,
+      "deregister_frames": 30,
+      "min_inertia": 6
+    }
+  },
+  "analytics": {
+    "enable_file_publish": true
   }
 }
