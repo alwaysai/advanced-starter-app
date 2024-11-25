@@ -79,11 +79,15 @@ def main():
                     keep_scale=True
                 )
 
-                results = obj_detect.detect_objects(frame, confidence_level=.5)
+                results = obj_detect.detect_objects(
+                    frame,
+                    confidence_level=cfg.inference.confidence,
+                    overlap_threshold=cfg.inference.overlap_threshold
+                )
                 predictions = edgeiq.filter_predictions_by_label(
                     predictions=results.predictions,
-                    label_list=['person']
-                )
+                    label_list=cfg.inference.labels
+                ) if cfg.inference.labels else results.predictions
 
                 # Generate text to display on streamer
                 text = [f'Model: {obj_detect.model_id}']
