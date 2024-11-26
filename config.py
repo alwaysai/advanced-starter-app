@@ -34,6 +34,17 @@ class VideoStreamConfig:
 
 
 @dataclass
+class InferenceConfig:
+    confidence: float
+    overlap_threshold: float
+    labels: List[str]
+
+    @classmethod
+    def from_dict(cls, cfg: dict):
+        return cls(**cfg)
+
+
+@dataclass
 class TrackerConfig:
     max_distance: int
     deregister_frames: int
@@ -47,11 +58,13 @@ class TrackerConfig:
 @dataclass
 class Config:
     video_stream: VideoStreamConfig
+    inference: InferenceConfig
     tracker: TrackerConfig
 
     @classmethod
     def from_dict(cls, cfg: dict):
         cfg['video_stream'] = VideoStreamConfig.from_dict(cfg['video_stream'])
+        cfg['inference'] = InferenceConfig.from_dict(cfg['inference'])
         cfg['tracker'] = TrackerConfig.from_dict(cfg['tracker'])
         return cls(**cfg)
 

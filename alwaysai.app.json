@@ -14,6 +14,11 @@
       "mode": "USB",
       "arg": 0
     },
+    "inference": {
+      "confidence": 0.5,
+      "overlap_threshold": 0.3,
+      "labels": ["person"]
+    },
     "tracker": {
       "max_distance": 400,
       "deregister_frames": 30,
