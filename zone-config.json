@@ -1,0 +1,58 @@
+{
+  "dimensions": {
+    "width": 1920,
+    "height": 1080
+  },
+  "zones": [
+    {
+      "desired_zone": {
+        "id": 1731428486240,
+        "description": "",
+        "zone_type": "polygon",
+        "vector": [
+          [
+            0,
+            0
+          ],
+          [
+            568,
+            0
+          ],
+          [
+            572,
+            1077
+          ],
+          [
+            0,
+            1080
+          ]
+        ]
+      }
+    },
+    {
+      "restricted_zone": {
+        "id": 1731428519691,
+        "description": "",
+        "zone_type": "polygon",
+        "vector": [
+          [
+            1402,
+            0
+          ],
+          [
+            1920,
+            0
+          ],
+          [
+            1920,
+            1080
+          ],
+          [
+            1408,
+            1080
+          ]
+        ]
+      }
+    }
+  ]
+}

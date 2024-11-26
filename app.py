@@ -1,16 +1,28 @@
 import time
-import cv2
 import edgeiq
+from datetime import datetime
 
 from config import load_config, VideoMode
 
 
-def object_enters(object_id, prediction):
-    print("{}: {} enters".format(object_id, prediction.label))
-
-
 def object_exits(object_id, prediction):
-    print("{} exits".format(prediction.label))
+    enter_timestamp = prediction._enter_timestamp
+    exit_timestamp = edgeiq.generate_event_timestamp()
+    enter_dt = datetime.strptime(enter_timestamp, "%Y-%m-%dT%H:%M:%SZ")
+    exit_dt = datetime.strptime(exit_timestamp, "%Y-%m-%dT%H:%M:%SZ")
+    dwell_time = (exit_dt - enter_dt).total_seconds()
+    dwell_event = edgeiq.ValueEvent(
+        event_label='person_dwell_seconds',
+        object_label=object_id,
+        value=dwell_time
+    )
+    dwell_event.publish_event()
+    print("{}: {} exits".format(object_id, prediction.label))
+
+
+def object_enters(object_id, prediction):
+    prediction._enter_timestamp = edgeiq.generate_event_timestamp()
+    print("{} enters".format(prediction.label))
 
 
 def main():
@@ -49,16 +61,20 @@ def main():
     )
 
     # TODO: Load zones
-    # zone_list = edgeiq.ZoneList.from_config_file('zone_config.yaml')
+    zone_list = edgeiq.ZoneList.from_config_file('zone-config.json')
     zone_list = edgeiq.ZoneList(
-        zones=[],
+        zones=zone_list.zones,
         image_width=cfg.video_stream.app_frame_size[0],
         image_height=cfg.video_stream.app_frame_size[1],
     )
+    zone_list._colors = [(0, 255, 0), (0, 0, 255)]
+
 
     # TODO: Convert zone to image size and update colors
 
     fps = edgeiq.FPS()
+
+    last_publish = None
 
     try:
         with video_stream_cls(cfg.video_stream.arg) as video_stream, \
@@ -103,21 +119,47 @@ def main():
                     text.append(f'{prediction.label}')
                     tracked_predictions.append(prediction)
 
-                # Get zone capacity
-                zone_capacity = {name: 0 for name in zone_list.zone_names}
-                for zone in zone_list.zones:
-                    for prediction in objects.values():
-                        if zone.check_prediction_within_zone(prediction):
-                            zone_capacity[zone.name] += 1
-
-                # TODO: Periodically send events for zones
-                for zone_name, capacity in zone_capacity.items():
-                    edgeiq.ValueEvent(
-                        event_label='zone_capacity',
+                # Periodically send occupancy events
+                current_time = datetime.now()
+                if last_publish is None or (
+                        (current_time - last_publish).total_seconds() >= 2):
+                    # Get person occupancy counts
+                    total_detected = max(objects.keys()) if len(objects) > 0 \
+                        else 0
+                    current_detected = len(tracked_predictions)
+                    total_detected_event = edgeiq.ValueEvent(
+                        timestamp=edgeiq.generate_event_timestamp(),
+                        event_label='total_detected',
                         object_label='person',
-                        zone_label=zone_name,
-                        value=capacity
+                        value=total_detected
                     )
+                    total_detected_event.publish_event()
+                    current_detected_event = edgeiq.ValueEvent(
+                        timestamp=edgeiq.generate_event_timestamp(),
+                        event_label='current_detected',
+                        object_label='person',
+                        value=current_detected
+                    )
+                    current_detected_event.publish_event()
+
+                    # Get zone capacity
+                    zone_capacity = {name: 0 for name in zone_list.zone_names}
+                    for zone in zone_list.zones:
+                        for prediction in objects.values():
+                            if zone.check_prediction_within_zone(prediction):
+                                zone_capacity[zone.name] += 1
+
+                    for zone_name, capacity in zone_capacity.items():
+                        event = edgeiq.ValueEvent(
+                            timestamp=edgeiq.generate_event_timestamp(),
+                            event_label='zone_capacity',
+                            object_label='person',
+                            zone_label=zone_name,
+                            value=capacity
+                        )
+                        event.publish_event()
+
+                    last_publish = datetime.now()
 
                 frame = zone_list.markup_image_with_zones(
                     image=frame,

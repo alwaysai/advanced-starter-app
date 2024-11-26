@@ -3,7 +3,7 @@
     "start": "python app.py"
   },
   "models": {
-    "alwaysai/mobilenet_ssd": 5
+    "alwaysai/yolo_v4": 5
   },
   "app_configurations": {
     "video_stream": {
@@ -15,12 +15,16 @@
       "arg": 0
     },
     "tracker": {
-      "max_distance": 100,
+      "max_distance": 400,
       "deregister_frames": 30,
       "min_inertia": 6
     }
   },
   "analytics": {
-    "enable_file_publish": true
+    "enable_file_publish": true,
+    "enable_cloud_publish": true,
+    "pipelines": [
+      "377aa7d5-a339-436a-a87c-e9757e82cf7b"
+    ]
   }
 }
