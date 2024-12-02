@@ -3,7 +3,7 @@
     "start": "python app.py"
   },
   "models": {
-    "alwaysai/yolo_v4": 5
+    "alwaysai/mobilenet_ssd": 5
   },
   "app_configurations": {
     "video_stream": {
@@ -17,7 +17,9 @@
     "inference": {
       "confidence": 0.5,
       "overlap_threshold": 0.3,
-      "labels": ["person"]
+      "labels": [
+        "person"
+      ]
     },
     "tracker": {
       "max_distance": 400,
@@ -26,10 +28,10 @@
     }
   },
   "analytics": {
-    "enable_file_publish": true,
-    "enable_cloud_publish": true,
+    "enable_file_publish": false,
+    "enable_cloud_publish": false,
     "pipelines": [
-      "377aa7d5-a339-436a-a87c-e9757e82cf7b"
+      "123e4567-e89b-12d3-a456-426614174039"
     ]
   }
 }

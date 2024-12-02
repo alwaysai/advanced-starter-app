@@ -4,6 +4,8 @@ from datetime import datetime
 
 from config import load_config, VideoMode
 
+TOTAL_PERSON_COUNT = 0
+
 
 def object_exits(object_id, prediction):
     enter_timestamp = prediction._enter_timestamp
@@ -22,6 +24,8 @@ def object_exits(object_id, prediction):
 
 def object_enters(object_id, prediction):
     prediction._enter_timestamp = edgeiq.generate_event_timestamp()
+    global TOTAL_PERSON_COUNT
+    TOTAL_PERSON_COUNT += 1
     print("{} enters".format(prediction.label))
 
 
@@ -104,9 +108,12 @@ def main():
                     predictions=results.predictions,
                     label_list=cfg.inference.labels
                 ) if cfg.inference.labels else results.predictions
+                print(len(predictions))
+                frame = edgeiq.blur_objects(frame, predictions)
+                people_count = len(predictions)
 
                 # Generate text to display on streamer
-                text = [f'Model: {obj_detect.model_id}']
+                text = [f'Model: {obj_detect.model_id}', f'Labels:\n{obj_detect.labels}\n', f'People Count: {people_count}\n']
                 text.append(f'Loaded to {obj_detect.engine}:{obj_detect.accelerator}')
                 text.append('Inference time: {:1.3f} s'.format(results.duration))
                 text.append('Objects:')
@@ -128,14 +135,12 @@ def main():
                 if last_publish is None or (
                         (current_time - last_publish).total_seconds() >= 2):
                     # Get person occupancy counts
-                    total_detected = max(objects.keys()) if len(objects) > 0 \
-                        else 0
                     current_detected = len(tracked_predictions)
                     total_detected_event = edgeiq.ValueEvent(
                         timestamp=edgeiq.generate_event_timestamp(),
                         event_label='total_detected',
                         object_label='person',
-                        value=total_detected
+                        value=TOTAL_PERSON_COUNT
                     )
                     total_detected_event.publish_event()
                     current_detected_event = edgeiq.ValueEvent(
@@ -149,8 +154,9 @@ def main():
                     # Get zone capacity
                     zone_capacity = {name: 0 for name in zone_list.zone_names}
                     for zone in zone_list.zones:
-                        for prediction in objects.values():
+                        for key, prediction in objects.items():
                             if zone.check_prediction_within_zone(prediction):
+                                print(f"{key} in zone {zone}")
                                 zone_capacity[zone.name] += 1
 
                     for zone_name, capacity in zone_capacity.items():
