@@ -1,0 +1,114 @@
+{
+  "visual_analytics_config": [
+    {
+      "title": "Person Occupancy",
+      "sections": [
+        {
+          "title": "",
+          "components": [
+            {
+              "title": "Total Entries",
+              "span": 3,
+              "type": "countGraph",
+              "countType": "eventCount",
+              "countFormat": "wholeNumber",
+              "eventFilters": [
+                {
+                  "key": "event_label",
+                  "values": [
+                    "entry_event"
+                  ]
+                }
+              ],
+              "metrics": [
+                {
+                  "title": "Total Entries",
+                  "key": "event_label",
+                  "values": [
+                    "entry_event"
+                  ],
+                  "color": "rgba(242, 100, 48,1)"
+                }
+              ]
+            },
+            {
+              "title": "Total Exits",
+              "span": 3,
+              "type": "countGraph",
+              "countType": "eventCount",
+              "countFormat": "wholeNumber",
+              "eventFilters": [
+                {
+                  "key": "event_label",
+                  "values": [
+                    "exit_event"
+                  ]
+                }
+              ],
+              "metrics": [
+                {
+                  "title": "Total Exits",
+                  "key": "event_label",
+                  "values": [
+                    "exit_event"
+                  ],
+                  "color": "rgba(242, 100, 48,1)"
+                }
+              ]
+            },
+            {
+              "title": "Restricted Zone Entry",
+              "span": 3,
+              "type": "countGraph",
+              "countType": "eventCount",
+              "countFormat": "wholeNumber",
+              "eventFilters": [
+                {
+                  "key": "event_label",
+                  "values": [
+                    "zone_entry"
+                  ]
+                }
+              ],
+              "metrics": [
+                {
+                  "title": "Restricted Zone Entry",
+                  "key": "zone_label",
+                  "values": [
+                    "restricted_zone"
+                  ],
+                  "color": "rgba(171,172,255,1)"
+                }
+              ]
+            },
+            {
+              "title": "Desired Zone Entry",
+              "span": 3,
+              "type": "countGraph",
+              "countType": "eventCount",
+              "countFormat": "wholeNumber",
+              "eventFilters": [
+                {
+                  "key": "event_label",
+                  "values": [
+                    "zone_entry"
+                  ]
+                }
+              ],
+              "metrics": [
+                {
+                  "title": "Desired Zone Entry",
+                  "key": "zone_label",
+                  "values": [
+                    "desired_zone"
+                  ],
+                  "color": "rgba(171,172,255,1)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

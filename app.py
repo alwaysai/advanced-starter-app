@@ -1,31 +1,41 @@
+from datetime import datetime
 import time
 import edgeiq
-from datetime import datetime
 
 from config import load_config, VideoMode
 
-TOTAL_PERSON_COUNT = 0
+ZONES = None
 
 
 def object_exits(object_id, prediction):
-    enter_timestamp = prediction._enter_timestamp
-    exit_timestamp = edgeiq.generate_event_timestamp()
-    enter_dt = datetime.strptime(enter_timestamp, "%Y-%m-%dT%H:%M:%SZ")
-    exit_dt = datetime.strptime(exit_timestamp, "%Y-%m-%dT%H:%M:%SZ")
-    dwell_time = (exit_dt - enter_dt).total_seconds()
-    dwell_event = edgeiq.ValueEvent(
-        event_label='person_dwell_seconds',
-        object_label=object_id,
-        value=dwell_time
+    end_event = edgeiq.EndTimedEvent(
+        event_label='exit_event',
+        event_id=prediction._event_id,
+        object_label='person',
+        object_id=object_id
     )
-    dwell_event.publish_event()
+    end_event.publish_event()
     print("{}: {} exits".format(object_id, prediction.label))
 
 
 def object_enters(object_id, prediction):
-    prediction._enter_timestamp = edgeiq.generate_event_timestamp()
-    global TOTAL_PERSON_COUNT
-    TOTAL_PERSON_COUNT += 1
+    zone = ZONES.get_zone_for_prediction(prediction)
+    zone_name = zone.name if zone is not None else 'None'
+    occurrence_event = edgeiq.OccurrenceEvent(
+        event_label='zone_entry',
+        zone_label=zone_name,
+        object_id=object_id,
+        object_label='person'
+    )
+    occurrence_event.publish_event()
+    start_event = edgeiq.StartTimedEvent(
+        event_label='entry_event',
+        object_label='person',
+        object_id=object_id
+    )
+    start_event.publish_event()
+    prediction._event_id = start_event.event_id
+    prediction._last_zone = zone_name
     print("{} enters".format(prediction.label))
 
 
@@ -72,7 +82,8 @@ def main():
         image_height=cfg.video_stream.app_frame_size[1],
     )
     zone_list._colors = [(0, 255, 0), (0, 0, 255)]
-
+    global ZONES
+    ZONES = zone_list
 
     # TODO: Convert zone to image size and update colors
 
@@ -108,12 +119,9 @@ def main():
                     predictions=results.predictions,
                     label_list=cfg.inference.labels
                 ) if cfg.inference.labels else results.predictions
-                print(len(predictions))
-                frame = edgeiq.blur_objects(frame, predictions)
-                people_count = len(predictions)
 
                 # Generate text to display on streamer
-                text = [f'Model: {obj_detect.model_id}', f'Labels:\n{obj_detect.labels}\n', f'People Count: {people_count}\n']
+                text = [f'Model: {obj_detect.model_id}', f'Labels:\n{obj_detect.labels}\n']
                 text.append(f'Loaded to {obj_detect.engine}:{obj_detect.accelerator}')
                 text.append('Inference time: {:1.3f} s'.format(results.duration))
                 text.append('Objects:')
@@ -128,46 +136,26 @@ def main():
                     class_label = obj_detect.labels[prediction.index]
                     prediction.label = f'{object_id}: {class_label}'
                     text.append(f'{prediction.label}')
-                    tracked_predictions.append(prediction)
+                    tracked_predictions.append(prediction)    
 
                 # Periodically send occupancy events
                 current_time = datetime.now()
                 if last_publish is None or (
                         (current_time - last_publish).total_seconds() >= 2):
-                    # Get person occupancy counts
-                    current_detected = len(tracked_predictions)
-                    total_detected_event = edgeiq.ValueEvent(
-                        timestamp=edgeiq.generate_event_timestamp(),
-                        event_label='total_detected',
-                        object_label='person',
-                        value=TOTAL_PERSON_COUNT
-                    )
-                    total_detected_event.publish_event()
-                    current_detected_event = edgeiq.ValueEvent(
-                        timestamp=edgeiq.generate_event_timestamp(),
-                        event_label='current_detected',
-                        object_label='person',
-                        value=current_detected
-                    )
-                    current_detected_event.publish_event()
 
-                    # Get zone capacity
-                    zone_capacity = {name: 0 for name in zone_list.zone_names}
+                    # Get zone entry events
                     for zone in zone_list.zones:
                         for key, prediction in objects.items():
                             if zone.check_prediction_within_zone(prediction):
-                                print(f"{key} in zone {zone}")
-                                zone_capacity[zone.name] += 1
-
-                    for zone_name, capacity in zone_capacity.items():
-                        event = edgeiq.ValueEvent(
-                            timestamp=edgeiq.generate_event_timestamp(),
-                            event_label='zone_capacity',
-                            object_label='person',
-                            zone_label=zone_name,
-                            value=capacity
-                        )
-                        event.publish_event()
+                                if zone.name != prediction._last_zone:
+                                    prediction._last_zone = zone.name
+                                    zone_change_event = edgeiq.OccurrenceEvent(
+                                        object_id=key,
+                                        event_label='zone_entry',
+                                        zone_label=zone.name,
+                                        object_label='person'
+                                    )
+                                    zone_change_event.publish_event()
 
                     last_publish = datetime.now()
 

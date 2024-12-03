@@ -28,8 +28,8 @@
     }
   },
   "analytics": {
-    "enable_file_publish": false,
-    "enable_cloud_publish": false,
+    "enable_file_publish": true,
+    "enable_cloud_publish": true,
     "pipelines": [
       "123e4567-e89b-12d3-a456-426614174039"
     ]
