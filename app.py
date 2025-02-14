@@ -1,8 +1,9 @@
 import time
-import cv2
+from typing import List, Optional
 import edgeiq
+import numpy as np
 
-from config import load_config, VideoMode
+from config import InferenceMode, load_config, VideoMode
 
 
 def object_enters(object_id, prediction):
@@ -13,27 +14,85 @@ def object_exits(object_id, prediction):
     print("{} exits".format(prediction.label))
 
 
+def get_video_stream(mode, arg: str | int) -> edgeiq.VideoStream:
+    if mode == VideoMode.FILE:
+        return edgeiq.FileVideoStream(arg)
+    elif mode == VideoMode.USB:
+        return edgeiq.WebcamVideoStream(arg)
+    elif mode == VideoMode.IP:
+        return edgeiq.IPVideoStream(arg)
+    else:
+        raise ValueError(f'Unsupported mode {mode}!')
+
+
+def get_inference(
+    mode: InferenceMode,
+    model_id: str,
+    annotations_file_paths: Optional[List[str]]
+) -> edgeiq.ObjectDetection:
+    if mode == InferenceMode.INFERENCE:
+        obj_detect = edgeiq.ObjectDetection(model_id=model_id)
+        if (edgeiq.is_jetson() or edgeiq.find_nvidia_gpu()) \
+                and obj_detect.model_config.tensor_rt_support:
+            engine = edgeiq.Engine.TENSOR_RT
+        elif obj_detect.model_config.dnn_support:
+            engine = edgeiq.Engine.DNN
+        else:
+            raise ValueError(f'Model {obj_detect.model_id} not supported on this device!')
+        obj_detect.load(engine)
+        return obj_detect
+
+    elif mode == InferenceMode.ANNOTATIONS:
+        annotation_results = [
+            edgeiq.load_analytics_results(file_path) for file_path in annotations_file_paths
+        ]
+        return edgeiq.ObjectDetectionAnalytics(
+            annotations=annotation_results,
+            model_id=model_id
+        )
+    else:
+        raise ValueError(f'Unsupported mode {mode}!')
+
+
+class NoVideoWriter(edgeiq.VideoWriter):
+    def __init__(self):
+        pass
+
+    def write_frame(self, frame: np.ndarray):
+        pass
+
+    def close(self):
+        pass
+
+
+def get_video_writer(enable: bool, *args, **kwargs) -> edgeiq.VideoWriter:
+    if enable:
+        return edgeiq.VideoWriter(*args, **kwargs)
+    else:
+        return NoVideoWriter()
+
+
 def main():
     cfg = load_config()
+    print(f'Configuration:\n{cfg}')
 
-    print(cfg.video_stream)
-    video_stream_cls = edgeiq.IPVideoStream if cfg.video_stream.mode == VideoMode.IP \
-        else edgeiq.WebcamVideoStream
+    video_stream = get_video_stream(
+        mode=cfg.video_stream.mode,
+        arg=cfg.video_stream.arg
+    )
 
     # Select the last model in the app configuration models list
     # Currently supports Tensor RT and DNN
     model_id_list = edgeiq.AppConfig().model_id_list
     if len(model_id_list) == 0:
         raise RuntimeError('No models in model ID list!')
+
     model_id = model_id_list[-1]
-    obj_detect = edgeiq.ObjectDetection(model_id)
-    if edgeiq.is_jetson() and obj_detect.model_config.tensor_rt_support:
-        engine = edgeiq.Engine.TENSOR_RT
-    elif obj_detect.model_config.dnn_support:
-        engine = edgeiq.Engine.DNN
-    else:
-        raise ValueError(f'Model {obj_detect.model_id} not supported on this device!')
-    obj_detect.load(engine)
+    obj_detect = get_inference(
+        mode=cfg.inference.mode,
+        model_id=model_id,
+        annotations_file_paths=cfg.inference.annotations_file_paths
+    )
 
     print(f'Engine: {obj_detect.engine}')
     print(f'Accelerator: {obj_detect.accelerator}\n')
@@ -48,36 +107,25 @@ def main():
         exit_cb=object_exits
     )
 
-    # TODO: Load zones
-    # zone_list = edgeiq.ZoneList.from_config_file('zone_config.yaml')
-    zone_list = edgeiq.ZoneList(
-        zones=[],
-        image_width=cfg.video_stream.app_frame_size[0],
-        image_height=cfg.video_stream.app_frame_size[1],
+    video_writer = get_video_writer(
+        enable=cfg.video_writer.enable,
+        output_path=cfg.video_writer.output_path,
+        fps=cfg.video_writer.fps,
+        codec=cfg.video_writer.codec,
+        chunk_duration_s=cfg.video_writer.chunk_duration_s
     )
-
-    # TODO: Convert zone to image size and update colors
 
     fps = edgeiq.FPS()
 
     try:
-        with video_stream_cls(cfg.video_stream.arg) as video_stream, \
-                edgeiq.Streamer() as streamer:
-            # Allow Webcam to warm up
+        with edgeiq.Streamer() as streamer:
+            video_stream.start()
+            # Allow camera stream to warm up
             time.sleep(2.0)
             fps.start()
 
             while True:
                 frame = video_stream.read()
-                # TODO: This will keep the aspect ratio, but not add additional
-                # black bars to make the image match the desired size. It will
-                # crash and the user can then update the config to match.
-                frame = edgeiq.resize(
-                    image=frame,
-                    width=cfg.video_stream.app_frame_size[0],
-                    height=cfg.video_stream.app_frame_size[1],
-                    keep_scale=True
-                )
 
                 results = obj_detect.detect_objects(
                     frame,
@@ -107,29 +155,6 @@ def main():
                     text.append(f'{prediction.label}')
                     tracked_predictions.append(prediction)
 
-                # Get zone capacity
-                zone_capacity = {name: 0 for name in zone_list.zone_names}
-                for zone in zone_list.zones:
-                    for prediction in objects.values():
-                        if zone.check_prediction_within_zone(prediction):
-                            zone_capacity[zone.name] += 1
-
-                # TODO: Periodically send events for zones
-                for zone_name, capacity in zone_capacity.items():
-                    edgeiq.ValueEvent(
-                        event_label='zone_capacity',
-                        object_label='person',
-                        zone_label=zone_name,
-                        value=capacity
-                    )
-
-                frame = zone_list.markup_image_with_zones(
-                    image=frame,
-                    show_labels=True,
-                    show_boundaries=True,
-                    fill_zones=True
-                )
-
                 frame = edgeiq.markup_image(
                     frame,
                     tracked_predictions,
@@ -138,6 +163,7 @@ def main():
                     colors=obj_detect.colors
                 )
                 streamer.send_data(frame, text)
+                video_writer.write_frame(frame)
                 fps.update()
 
                 if streamer.check_exit():
@@ -145,6 +171,8 @@ def main():
 
     finally:
         fps.stop()
+        video_stream.stop()
+        video_writer.close()
         print('elapsed time: {:.2f}'.format(fps.get_elapsed_seconds()))
         print('approx. FPS: {:.2f}'.format(fps.compute_fps()))
 
