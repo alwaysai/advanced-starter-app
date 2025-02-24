@@ -7,14 +7,11 @@
   },
   "app_configurations": {
     "video_stream": {
-      "app_frame_size": [
-        1920,
-        1080
-      ],
       "mode": "USB",
       "arg": 0
     },
     "inference": {
+      "mode": "INFERENCE",
       "confidence": 0.5,
       "overlap_threshold": 0.3,
       "labels": ["person"]
@@ -23,6 +20,13 @@
       "max_distance": 100,
       "deregister_frames": 30,
       "min_inertia": 6
+    },
+    "video_writer": {
+      "enable": true,
+      "output_path": "output.avi",
+      "fps": 30,
+      "codec": "MJPG",
+      "chunk_duration_s": 30
     }
   },
   "analytics": {
