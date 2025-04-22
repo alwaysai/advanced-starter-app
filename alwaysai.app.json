@@ -6,15 +6,19 @@
     "alwaysai/mobilenet_ssd": 5
   },
   "app_configurations": {
-    "video_stream": {
-      "mode": "USB",
-      "arg": 0
-    },
+    "video_streams": [
+      {
+        "mode": "USB",
+        "arg": 0
+      }
+    ],
     "inference": {
       "mode": "INFERENCE",
       "confidence": 0.5,
       "overlap_threshold": 0.3,
-      "labels": ["person"]
+      "labels": [
+        "person"
+      ]
     },
     "tracker": {
       "max_distance": 100,
