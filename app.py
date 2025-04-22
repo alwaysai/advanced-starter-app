@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List, Optional, Union
+from typing import List, Optional
 import edgeiq
 import numpy as np
 
@@ -15,7 +15,7 @@ def object_exits(object_id, prediction):
     print("{} exits".format(prediction.label))
 
 
-def get_video_stream(mode, arg: str | int) -> Union[edgeiq.IPVideoStream, edgeiq.WebcamVideoStream, edgeiq.FileVideoStream]:
+def get_video_stream(mode, arg: str | int) -> edgeiq.VideoStream:
     if mode == VideoMode.FILE:
         return edgeiq.FileVideoStream(arg)
     elif mode == VideoMode.USB:
