@@ -94,7 +94,7 @@ class Config:
 
 
 def load_config() -> Config:
-    app_file = edgeiq.AppConfig().app_file
+    app_file = edgeiq.AppConfig()._app_file.contents
     if app_file is None:
         raise RuntimeError('alwaysai.app.json not found!')
     cfg = app_file['app_configurations']

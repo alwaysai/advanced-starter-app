@@ -1,5 +1,5 @@
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 import edgeiq
 import numpy as np
 
@@ -14,7 +14,7 @@ def object_exits(object_id, prediction):
     print("{} exits".format(prediction.label))
 
 
-def get_video_stream(mode, arg: str | int) -> edgeiq.VideoStream:
+def get_video_stream(mode, arg: str | int) -> Union[edgeiq.IPVideoStream, edgeiq.WebcamVideoStream, edgeiq.FileVideoStream]:
     if mode == VideoMode.FILE:
         return edgeiq.FileVideoStream(arg)
     elif mode == VideoMode.USB:
