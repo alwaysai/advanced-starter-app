@@ -89,11 +89,6 @@ def main():
     cfg = load_config()
     print(f'Configuration:\n{cfg}')
 
-    video_stream = get_video_stream(
-        mode=cfg.video_stream.mode,
-        arg=cfg.video_stream.arg
-    )
-
     # Select the last model in the app configuration models list
     # Currently supports Tensor RT and DNN
     model_id_list = edgeiq.AppConfig().model_id_list
@@ -112,13 +107,26 @@ def main():
     print(f'Model:\n{obj_detect.model_id}\n')
     print(f'Labels:\n{obj_detect.labels}\n')
 
-    tracker = edgeiq.KalmanTracker(
-        max_distance=cfg.tracker.max_distance,
-        deregister_frames=cfg.tracker.deregister_frames,
-        min_inertia=cfg.tracker.min_inertia,
-        enter_cb=object_enters,
-        exit_cb=object_exits
-    )
+    video_streams = [
+        get_video_stream(
+            mode=video_cfg.mode,
+            arg=video_cfg.arg
+        ) for video_cfg in cfg.video_streams.video_streams
+    ]
+
+    trackers = []
+    # NOTE: you may want to disable the tracker in the future
+    # currently there is one tracker per stream, but this will
+    # track all labels passed to it, so it may not work if the model
+    # is different than the annotations
+    for i in range(0, len(video_streams)):
+        trackers.append(edgeiq.KalmanTracker(
+            max_distance=cfg.tracker.max_distance,
+            deregister_frames=cfg.tracker.deregister_frames,
+            min_inertia=cfg.tracker.min_inertia,
+            enter_cb=object_enters,
+            exit_cb=object_exits
+        ))
 
     video_writer = get_video_writer(
         enable=cfg.video_writer.enable,
@@ -132,48 +140,63 @@ def main():
 
     try:
         with edgeiq.Streamer() as streamer:
-            video_stream.start()
+            for video_stream in video_streams:
+                video_stream.start()
             # Allow camera stream to warm up
             time.sleep(2.0)
             fps.start()
 
             while True:
-                frame = video_stream.read()
+                frames = []
+                for i, video_stream in enumerate(video_streams):
+                    frame = video_stream.read()
 
-                results = obj_detect.detect_objects(
-                    frame,
-                    confidence_level=cfg.inference.confidence,
-                    overlap_threshold=cfg.inference.overlap_threshold
-                )
-                predictions = edgeiq.filter_predictions_by_label(
-                    predictions=results.predictions,
-                    label_list=cfg.inference.labels
-                ) if cfg.inference.labels else results.predictions
+                    results = obj_detect.detect_objects(
+                        frame,
+                        confidence_level=cfg.inference.confidence,
+                        overlap_threshold=cfg.inference.overlap_threshold
+                    )
+                    predictions = edgeiq.filter_predictions_by_label(
+                        predictions=results.predictions,
+                        label_list=cfg.inference.labels
+                    ) if cfg.inference.labels else results.predictions
 
-                # Generate text to display on streamer
-                text = [f'Model: {obj_detect.model_id}']
-                text.append(f'Loaded to {obj_detect.engine}:{obj_detect.accelerator}')
-                text.append('Inference time: {:1.3f} s'.format(results.duration))
-                text.append('Objects:')
+                    # Generate text to display on streamer
+                    text = [f'Model: {obj_detect.model_id}']
+                    text.append(f'Loaded to {obj_detect.engine}:{obj_detect.accelerator}')
+                    text.append('Inference time: {:1.3f} s'.format(results.duration))
+                    text.append('Objects:')
 
-                objects = tracker.update(predictions)
+                    objects = trackers[i].update(predictions)
 
-                # Update the label to reflect the object ID
-                tracked_predictions = []
-                for object_id, prediction in objects.items():
-                    # Use the original class label instead of the prediction
-                    # label to avoid iteratively adding the ID to the label
-                    class_label = obj_detect.labels[prediction.index]
-                    prediction.label = f'{object_id}: {class_label}'
-                    text.append(f'{prediction.label}')
-                    tracked_predictions.append(prediction)
+                    # Update the label to reflect the object ID
+                    tracked_predictions = []
+                    for object_id, prediction in objects.items():
+                        # Use the original class label instead of the prediction
+                        # label to avoid iteratively adding the ID to the label
+                        class_label = obj_detect.labels[prediction.index]
+                        prediction.label = f'{object_id}: {class_label}'
+                        text.append(f'{prediction.label}')
+                        tracked_predictions.append(prediction)
 
-                frame = edgeiq.markup_image(
-                    frame,
-                    tracked_predictions,
-                    show_labels=True,
-                    show_confidences=False,
-                    colors=obj_detect.colors
+                    frame = edgeiq.markup_image(
+                        frame,
+                        tracked_predictions,
+                        show_labels=True,
+                        show_confidences=False,
+                        colors=obj_detect.colors
+                    )
+                    frames.append(frame)
+                # then after we iterate, combine the frames and mark up the frame count
+                frame = edgeiq.safe_hstack(frames)
+                frame, _, _ = edgeiq.draw_text_with_background(
+                    image=frame,
+                    text=f'Frame idx: {fps._num_frames}',
+                    start_x=5,
+                    start_y=5,
+                    font_size=1,
+                    font_thickness=2,
+                    color=(0, 0, 0)
                 )
                 streamer.send_data(frame, text)
                 video_writer.write_frame(frame)
@@ -184,7 +207,8 @@ def main():
 
     finally:
         fps.stop()
-        video_stream.stop()
+        for video_stream in video_streams:
+            video_stream.stop()
         video_writer.close()
         print('elapsed time: {:.2f}'.format(fps.get_elapsed_seconds()))
         print('approx. FPS: {:.2f}'.format(fps.compute_fps()))
