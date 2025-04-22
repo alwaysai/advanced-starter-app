@@ -1,3 +1,4 @@
+import json
 import time
 from typing import List, Optional, Union
 import edgeiq
@@ -38,18 +39,30 @@ def get_inference(
         elif obj_detect.model_config.dnn_support:
             engine = edgeiq.Engine.DNN
         else:
-            raise ValueError(f'Model {obj_detect.model_id} not supported on this device!')
+            engine = edgeiq.Engine.ONNX_RT
         obj_detect.load(engine)
         return obj_detect
 
-    elif mode == InferenceMode.ANNOTATIONS:
+    elif mode == InferenceMode.AAI_ANNOTATIONS:
         annotation_results = [
-            edgeiq.load_analytics_results(file_path) for file_path in annotations_file_paths
+            edgeiq.load_analytics_results(file_path) for file_path
+            in annotations_file_paths
         ]
         return edgeiq.ObjectDetectionAnalytics(
             annotations=annotation_results,
             model_id=model_id
         )
+    elif mode == InferenceMode.COCO_ANNOTATIONS:
+        annotation_results = [
+            # End frame was determined manually based on video properties
+            edgeiq.parse_coco_annotations(file_path) for file_path
+            in annotations_file_paths
+        ]
+        with open('loaded-annotations.json', 'w') as f:
+            json.dump([edgeiq.to_json_serializable(o) for o in annotation_results], f, indent=2)
+
+        return edgeiq.ObjectDetectionAnalytics(
+            annotations=annotation_results, model_id=model_id)
     else:
         raise ValueError(f'Unsupported mode {mode}!')
 

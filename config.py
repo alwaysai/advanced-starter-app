@@ -36,7 +36,8 @@ class VideoStreamConfig:
 
 class InferenceMode(Enum):
     INFERENCE = 'INFERENCE'
-    ANNOTATIONS = 'ANNOTATIONS'
+    COCO_ANNOTATIONS = 'COCO_ANNOTATIONS'
+    AAI_ANNOTATIONS = 'AAI_ANNOTATONS'
 
 
 @dataclass
