@@ -156,6 +156,13 @@ def main():
                         confidence_level=cfg.inference.confidence,
                         overlap_threshold=cfg.inference.overlap_threshold
                     )
+
+                    if cfg.inference.enable_test_capture:
+                        obj_detect.publish_analytics(
+                            results,
+                            file_path='annotations.txt'
+                        )
+
                     predictions = edgeiq.filter_predictions_by_label(
                         predictions=results.predictions,
                         label_list=cfg.inference.labels
