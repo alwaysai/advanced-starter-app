@@ -33,7 +33,7 @@ def get_inference(
 ) -> edgeiq.ObjectDetection:
     if mode == InferenceMode.INFERENCE:
         obj_detect = edgeiq.ObjectDetection(model_id=model_id)
-        if (edgeiq.is_jetson() or edgeiq.find_nvidia_gpu()) \
+        if edgeiq._trt_support.is_trt_supported_system() \
                 and obj_detect.model_config.tensor_rt_support:
             engine = edgeiq.Engine.TENSOR_RT
         elif obj_detect.model_config.dnn_support:
