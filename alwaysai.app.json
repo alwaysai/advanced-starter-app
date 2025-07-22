@@ -15,10 +15,7 @@
     "inference": {
       "mode": "INFERENCE",
       "confidence": 0.5,
-      "overlap_threshold": 0.3,
-      "labels": [
-        "person"
-      ]
+      "overlap_threshold": 0.3
     },
     "tracker": {
       "max_distance": 100,
@@ -27,9 +24,9 @@
     },
     "video_writer": {
       "enable": true,
-      "output_path": "output.avi",
+      "output_path": "output.mp4",
       "fps": 30,
-      "codec": "MJPG",
+      "codec": "AVC1",
       "chunk_duration_s": 30
     }
   },
