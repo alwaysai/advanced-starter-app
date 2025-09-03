@@ -58,6 +58,7 @@ class InferenceConfig:
     overlap_threshold: float
     labels: List[str]
     annotations_file_paths: Optional[List[str]] = None
+    enable_test_capture: bool = False
 
     @classmethod
     def from_dict(cls, cfg: dict):
@@ -70,6 +71,7 @@ class TrackerConfig:
     max_distance: int
     deregister_frames: int
     min_inertia: int
+    enable_test_capture: bool = False
 
     @classmethod
     def from_dict(cls, cfg: dict):
