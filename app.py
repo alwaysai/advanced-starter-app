@@ -102,7 +102,7 @@ def main():
         model_id=model_id,
         annotations_file_paths=cfg.inference.annotations_file_paths
     )
-    analytics_prefix = f'detections-{model_id}-{cfg.inference.confidence}-{cfg.inference.overlap_threshold}'
+    detections_analytics_prefix = f'detections-{model_id}-{cfg.inference.confidence}-{cfg.inference.overlap_threshold}'
 
     print(f'Engine: {obj_detect.engine}')
     print(f'Accelerator: {obj_detect.accelerator}\n')
@@ -129,6 +129,7 @@ def main():
             enter_cb=object_enters,
             exit_cb=object_exits
         ))
+    tracker_analytics_prefix = f'tracker-{cfg.tracker.max_distance}-{cfg.tracker.deregister_frames}-{cfg.tracker.min_inertia}'
 
     video_writer = get_video_writer(
         enable=cfg.video_writer.enable,
@@ -160,6 +161,7 @@ def main():
                         confidence_level=cfg.inference.confidence,
                         overlap_threshold=cfg.inference.overlap_threshold
                     )
+
                     if cfg.inference.enable_test_capture:
                         obj_detect.publish_analytics(
                             results,
@@ -167,8 +169,9 @@ def main():
                                 'stream_idx': stream_idx,
                                 'frame_idx': frame_idx
                             },
-                            file_path=os.path.join('logs', f'{analytics_prefix}-stream{stream_idx}.txt')
+                            file_path=os.path.join('logs', f'{detections_analytics_prefix}-stream{stream_idx}.txt')
                         )
+
                     predictions = edgeiq.filter_predictions_by_label(
                         predictions=results.predictions,
                         label_list=cfg.inference.labels
@@ -181,6 +184,16 @@ def main():
                     text.append('Objects:')
 
                     objects = trackers[stream_idx].update(predictions)
+
+                    if cfg.tracker.enable_test_capture:
+                        obj_detect.publish_analytics(
+                            objects,
+                            tag={
+                                'stream_idx': stream_idx,
+                                'frame_idx': frame_idx
+                            },
+                            file_path=os.path.join('logs', f'{tracker_analytics_prefix}-stream{stream_idx}.txt')
+                        )
 
                     # Update the label to reflect the object ID
                     tracked_predictions = []

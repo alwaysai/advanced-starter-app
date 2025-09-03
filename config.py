@@ -71,6 +71,7 @@ class TrackerConfig:
     max_distance: int
     deregister_frames: int
     min_inertia: int
+    enable_test_capture: bool = False
 
     @classmethod
     def from_dict(cls, cfg: dict):
