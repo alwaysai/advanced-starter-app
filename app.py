@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from typing import List, Optional
 import edgeiq
@@ -101,6 +102,7 @@ def main():
         model_id=model_id,
         annotations_file_paths=cfg.inference.annotations_file_paths
     )
+    analytics_prefix = f'detections-{model_id}-{cfg.inference.confidence}-{cfg.inference.overlap_threshold}'
 
     print(f'Engine: {obj_detect.engine}')
     print(f'Accelerator: {obj_detect.accelerator}\n')
@@ -119,7 +121,7 @@ def main():
     # currently there is one tracker per stream, but this will
     # track all labels passed to it, so it may not work if the model
     # is different than the annotations
-    for i in range(0, len(video_streams)):
+    for stream_idx in range(0, len(video_streams)):
         trackers.append(edgeiq.KalmanTracker(
             max_distance=cfg.tracker.max_distance,
             deregister_frames=cfg.tracker.deregister_frames,
@@ -146,9 +148,11 @@ def main():
             time.sleep(2.0)
             fps.start()
 
+            frame_idx = 0
+
             while True:
                 frames = []
-                for i, video_stream in enumerate(video_streams):
+                for stream_idx, video_stream in enumerate(video_streams):
                     frame = video_stream.read()
 
                     results = obj_detect.detect_objects(
@@ -156,6 +160,15 @@ def main():
                         confidence_level=cfg.inference.confidence,
                         overlap_threshold=cfg.inference.overlap_threshold
                     )
+                    if cfg.inference.enable_test_capture:
+                        obj_detect.publish_analytics(
+                            results,
+                            tag={
+                                'stream_idx': stream_idx,
+                                'frame_idx': frame_idx
+                            },
+                            file_path=os.path.join('logs', f'{analytics_prefix}-stream{stream_idx}.txt')
+                        )
                     predictions = edgeiq.filter_predictions_by_label(
                         predictions=results.predictions,
                         label_list=cfg.inference.labels
@@ -167,7 +180,7 @@ def main():
                     text.append('Inference time: {:1.3f} s'.format(results.duration))
                     text.append('Objects:')
 
-                    objects = trackers[i].update(predictions)
+                    objects = trackers[stream_idx].update(predictions)
 
                     # Update the label to reflect the object ID
                     tracked_predictions = []
@@ -201,6 +214,7 @@ def main():
                 streamer.send_data(frame, text)
                 video_writer.write_frame(frame)
                 fps.update()
+                frame_idx += 1
 
                 if streamer.check_exit():
                     break

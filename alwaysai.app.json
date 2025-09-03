@@ -26,11 +26,12 @@
       "enable": true,
       "output_path": "output.mp4",
       "fps": 30,
-      "codec": "AVC1",
+      "codec": "avc1",
       "chunk_duration_s": 30
     }
   },
   "analytics": {
-    "enable_file_publish": true
+    "enable_file_publish": true,
+    "file_size_bytes": 500000000
   }
 }
